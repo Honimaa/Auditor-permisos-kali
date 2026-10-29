@@ -3,7 +3,6 @@
 Las pruebas que necesitan root (chown a UID inexistente) se omiten si no se es root."""
 
 import os
-import stat
 import tempfile
 import unittest
 

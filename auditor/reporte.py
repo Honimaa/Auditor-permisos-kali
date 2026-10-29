@@ -1,7 +1,9 @@
-"""Salida de resultados: consola (con colores ANSI) y archivo HTML autocontenido."""
+"""Salida de resultados: consola (con colores ANSI) y reporte HTML autocontenido.
+
+construir_html() solo arma el texto; la escritura en disco la hace
+seguridad.escribir_archivo_seguro() para que el archivo nazca con permisos 0600."""
 
 import html
-import os
 import platform
 import socket
 from collections import Counter
@@ -42,7 +44,8 @@ def imprimir_consola(hallazgos: List[Hallazgo], est: EstadisticasEscaneo, color:
               f"(ejecute con sudo para una auditoría completa).")
 
 
-def generar_html(hallazgos: List[Hallazgo], est: EstadisticasEscaneo, rutas: List[str], destino: str) -> str:
+def construir_html(hallazgos: List[Hallazgo], est: EstadisticasEscaneo, rutas: List[str],
+                   ejecutado_como: str) -> str:
     conteo = Counter(h.severidad for h in hallazgos)
     filas = []
     for h in ordenar(hallazgos):
@@ -51,8 +54,7 @@ def generar_html(hallazgos: List[Hallazgo], est: EstadisticasEscaneo, rutas: Lis
             f"<td>{html.escape(h.regla)}</td><td class='mono'>{_cortable(h.ruta)}</td>"
             f"<td class='mono'>{html.escape(h.permisos)}</td><td>{html.escape(h.detalle)}</td>"
             f"<td class='mono'>{_cortable(h.recomendacion)}</td></tr>")
-    usuario_ejec = "root" if os.geteuid() == 0 else f"UID {os.geteuid()} (sin privilegios)"
-    contenido = f"""<!DOCTYPE html>
+    return f"""<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8"><title>Reporte de auditoría de permisos</title>
 <style>
  body{{font-family:Arial,Helvetica,sans-serif;font-size:10pt;margin:24px;color:#111;background:#fff}}
@@ -66,7 +68,7 @@ def generar_html(hallazgos: List[Hallazgo], est: EstadisticasEscaneo, rutas: Lis
 </style></head><body>
 <h1>Reporte de auditoría de permisos</h1>
 <div class="meta">Equipo: {html.escape(socket.gethostname())} · {html.escape(platform.platform())} ·
-Ejecutado como: {usuario_ejec} · {datetime.now():%Y-%m-%d %H:%M}<br>
+Ejecutado como: {html.escape(ejecutado_como)} · {datetime.now():%Y-%m-%d %H:%M}<br>
 Rutas auditadas: {html.escape(', '.join(rutas))} · {est.archivos} archivos, {est.directorios} directorios en {est.duracion_s:.2f} s</div>
 <div class="tarjetas">
  <div class="tarjeta"><b>{conteo[Severidad.ALTA]}</b>Altas</div>
@@ -77,6 +79,3 @@ Rutas auditadas: {html.escape(', '.join(rutas))} · {est.archivos} archivos, {es
 <table><tr><th>Severidad</th><th>Regla</th><th>Ruta</th><th>Permisos</th><th>Detalle</th><th>Recomendación</th></tr>
 {''.join(filas) or '<tr><td colspan="6">Sin hallazgos.</td></tr>'}
 </table></body></html>"""
-    with open(destino, "w", encoding="utf-8") as f:
-        f.write(contenido)
-    return destino

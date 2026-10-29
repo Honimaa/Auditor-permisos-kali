@@ -24,13 +24,15 @@ SGID_ESPERADOS = {
     "/usr/sbin/unix_chkpwd", "/usr/sbin/pam_extrausers_chkpwd",
 }
 
-# Permisos máximos aceptables para archivos críticos de autenticación.
+# Permisos máximos aceptables para archivos críticos. El registro de auditoría del
+# propio auditor también se incluye: la herramienta se revisa a sí misma.
 ARCHIVOS_SENSIBLES: Dict[str, int] = {
     "/etc/passwd": 0o644,
     "/etc/group": 0o644,
     "/etc/shadow": 0o640,
     "/etc/gshadow": 0o640,
     "/etc/sudoers": 0o440,
+    "/var/log/auditor-permisos.log": 0o600,
 }
 
 
@@ -78,8 +80,9 @@ def regla_directorio_sin_sticky(e: EntradaArchivo, ctx: Contexto) -> List[Hallaz
 
 def regla_suid_sgid(e: EntradaArchivo, ctx: Contexto) -> List[Hallazgo]:
     """R04/R05: binarios con SUID o SGID. Al ejecutarse toman la identidad del
-    dueño/grupo del archivo, así que un SUID root fuera de la lista base es
-    una vía directa de escalamiento de privilegios."""
+    dueño/grupo del archivo. Tener el bit no significa ser vulnerable (passwd lo
+    necesita), por eso los esperados se reportan como BAJA (inventario) y los
+    demás como señales que requieren verificar origen y uso."""
     if e.es_directorio:
         return []
     hallazgos = []
@@ -92,13 +95,17 @@ def regla_suid_sgid(e: EntradaArchivo, ctx: Contexto) -> List[Hallazgo]:
         else:
             sev = Severidad.ALTA if e.uid == 0 else Severidad.MEDIA
             hallazgos.append(Hallazgo("R04-SUID", sev, e.ruta, formato_permisos(e.modo),
-                                      f"SUID activo fuera de la lista base; se ejecuta como '{dueno}'.",
-                                      f"chmod u-s '{e.ruta}' si no es imprescindible"))
+                                      f"SUID activo fuera de la lista base; se ejecuta como '{dueno}'. "
+                                      "Tener SUID no prueba una vulnerabilidad: hay que verificar origen y uso.",
+                                      f"verificar con dpkg -S '{e.ruta}' si viene de un paquete; "
+                                      f"si no se necesita, chmod u-s '{e.ruta}'"))
     if e.modo & stat.S_ISGID and e.ruta not in ctx.sgid_esperados:
         grupo = ctx.usuarios.nombre_grupo(e.gid)
         hallazgos.append(Hallazgo("R05-SGID", Severidad.MEDIA, e.ruta, formato_permisos(e.modo),
-                                  f"SGID activo fuera de la lista base; se ejecuta con el grupo '{grupo}'.",
-                                  f"chmod g-s '{e.ruta}' si no es imprescindible"))
+                                  f"SGID activo fuera de la lista base; se ejecuta con el grupo '{grupo}'. "
+                                  "Requiere verificar su origen antes de considerarlo un riesgo.",
+                                  f"verificar con dpkg -S '{e.ruta}' si viene de un paquete; "
+                                  f"si no se necesita, chmod g-s '{e.ruta}'"))
     return hallazgos
 
 
@@ -134,9 +141,7 @@ def verificar_archivos_sensibles(ctx: Contexto) -> List[Hallazgo]:
     for ruta, maximo in ctx.sensibles.items():
         try:
             st = os.lstat(ruta)
-        except FileNotFoundError:
-            continue
-        except PermissionError:
+        except (FileNotFoundError, PermissionError):
             continue
         actuales = stat.S_IMODE(st.st_mode)
         sobrantes = actuales & ~maximo

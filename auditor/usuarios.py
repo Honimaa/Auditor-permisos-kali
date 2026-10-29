@@ -1,6 +1,6 @@
 """Consulta de usuarios y grupos válidos del sistema (/etc/passwd y /etc/group).
 
-Se cargan una sola vez en conjuntos (set) para que verificar si un UID existe
+Se cargan una sola vez en diccionarios para que verificar si un UID existe
 sea O(1); consultar pwd.getpwuid() por cada archivo era mucho más lento.
 """
 

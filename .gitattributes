@@ -1,0 +1,5 @@
+# Los scripts se ejecutan en Linux: forzar LF aunque se haga commit desde Windows
+# (con CRLF, bash falla con "$'\r': command not found").
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf

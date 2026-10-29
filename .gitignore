@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Salidas generadas por el auditor
+reporte_*.html
+*.log
+
+# Editor / sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
