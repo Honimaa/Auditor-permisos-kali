@@ -9,20 +9,9 @@ from typing import Dict, List
 from .modelos import EntradaArchivo, Hallazgo, Severidad
 from .usuarios import BaseUsuarios
 
-# Binarios que normalmente tienen SUID/SGID en Debian/Ubuntu/Kali. Si aparecen,
-# se reportan como BAJA (inventario); cualquier otro binario con estos bits es sospechoso.
-SUID_ESPERADOS = {
-    "/usr/bin/passwd", "/usr/bin/sudo", "/usr/bin/su", "/usr/bin/mount", "/usr/bin/umount",
-    "/usr/bin/chsh", "/usr/bin/chfn", "/usr/bin/newgrp", "/usr/bin/gpasswd", "/usr/bin/pkexec",
-    "/usr/bin/fusermount", "/usr/bin/fusermount3", "/usr/bin/ping",
-    "/usr/lib/openssh/ssh-keysign", "/usr/lib/dbus-1.0/dbus-daemon-launch-helper",
-    "/usr/lib/policykit-1/polkit-agent-helper-1", "/usr/lib/polkit-1/polkit-agent-helper-1",
-}
-SGID_ESPERADOS = {
-    "/usr/bin/chage", "/usr/bin/expiry", "/usr/bin/ssh-agent", "/usr/bin/crontab",
-    "/usr/bin/wall", "/usr/bin/write", "/usr/bin/write.ul", "/usr/bin/plocate",
-    "/usr/sbin/unix_chkpwd", "/usr/sbin/pam_extrausers_chkpwd",
-}
+# Las listas de binarios SUID/SGID esperados se leen de auditor/listas_base.conf
+# (ver auditor/listas.py). Si un Contexto se crea sin listas, todo SUID/SGID se
+# considera fuera de la lista base.
 
 # Permisos máximos aceptables para archivos críticos. El registro de auditoría del
 # propio auditor también se incluye: la herramienta se revisa a sí misma.
@@ -42,8 +31,8 @@ def formato_permisos(modo: int) -> str:
 
 
 class Contexto:
-    def __init__(self, usuarios: BaseUsuarios, suid_esperados=SUID_ESPERADOS,
-                 sgid_esperados=SGID_ESPERADOS, sensibles=ARCHIVOS_SENSIBLES):
+    def __init__(self, usuarios: BaseUsuarios, suid_esperados=frozenset(),
+                 sgid_esperados=frozenset(), sensibles=ARCHIVOS_SENSIBLES):
         self.usuarios = usuarios
         self.suid_esperados = suid_esperados
         self.sgid_esperados = sgid_esperados

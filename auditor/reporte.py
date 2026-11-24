@@ -4,6 +4,7 @@ construir_html() solo arma el texto; la escritura en disco la hace
 seguridad.escribir_archivo_seguro() para que el archivo nazca con permisos 0600."""
 
 import html
+import json
 import platform
 import socket
 from collections import Counter
@@ -79,3 +80,31 @@ Rutas auditadas: {html.escape(', '.join(rutas))} · {est.archivos} archivos, {es
 <table><tr><th>Severidad</th><th>Regla</th><th>Ruta</th><th>Permisos</th><th>Detalle</th><th>Recomendación</th></tr>
 {''.join(filas) or '<tr><td colspan="6">Sin hallazgos.</td></tr>'}
 </table></body></html>"""
+
+
+def construir_json(hallazgos: List[Hallazgo], est: EstadisticasEscaneo, rutas: List[str],
+                   listas: List[str], ejecutado_como: str, version: str) -> str:
+    """Los mismos resultados en JSON, para que la interfaz gráfica (u otro programa) los lea
+    sin interpretar el texto de la consola. Se escribe con escribir_archivo_seguro() (0600)."""
+    conteo = Counter(h.severidad for h in hallazgos)
+    datos = {
+        "version": version,
+        "fecha": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "equipo": socket.gethostname(),
+        "sistema": platform.platform(),
+        "ejecutado_como": ejecutado_como,
+        "rutas": rutas,
+        "listas_base": listas,
+        "resumen": {s.name: conteo[s] for s in (Severidad.ALTA, Severidad.MEDIA, Severidad.BAJA)},
+        "estadisticas": {
+            "archivos": est.archivos, "directorios": est.directorios,
+            "enlaces_omitidos": est.enlaces_omitidos, "especiales_omitidos": est.especiales_omitidos,
+            "rutas_sin_acceso": len(est.sin_acceso), "duracion_s": round(est.duracion_s, 2),
+        },
+        "hallazgos": [
+            {"severidad": h.severidad.name, "regla": h.regla, "ruta": h.ruta, "permisos": h.permisos,
+             "detalle": h.detalle, "recomendacion": h.recomendacion}
+            for h in ordenar(hallazgos)
+        ],
+    }
+    return json.dumps(datos, ensure_ascii=False, indent=2)

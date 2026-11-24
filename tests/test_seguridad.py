@@ -145,9 +145,13 @@ class PruebasMenorPrivilegio(unittest.TestCase):
             os.chown(d, u.pw_uid, u.pw_gid)
             reporte = os.path.join(d, "r.html")
             registro = os.path.join(d, "registro.log")
+            # copia de las listas base a nombre de root: el clon del proyecto puede ser de otro usuario
+            listas = os.path.join(d, "listas_base.conf")
+            shutil.copyfile(os.path.join(RAIZ_PROYECTO, "auditor", "listas_base.conf"), listas)
+            os.chmod(listas, 0o644)
             entorno = dict(os.environ, SUDO_UID=str(u.pw_uid), SUDO_GID=str(u.pw_gid), SUDO_USER=u.pw_name)
             r = subprocess.run([sys.executable, "auditor.py", "/etc/ssh", "--html", reporte,
-                                "--registro", registro, "--color", "no"],
+                                "--registro", registro, "--listas", listas, "--color", "no"],
                                cwd=RAIZ_PROYECTO, env=entorno, capture_output=True, text=True, timeout=60)
             self.assertIn(r.returncode, (0, 1, 2), r.stderr)
             st_rep, st_reg = os.stat(reporte), os.stat(registro)
